@@ -1,11 +1,22 @@
-blender_scripts
+blender.script.io_export_svg
 ===============
 
-A small collection of blenderscripts
-
-## addons/io_export_svg
-
 exportscript for blender 2.68 to get BezierCurves to SVG. for more info please go [there](http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Inkscape_SVG_Exporter)
+
+Getting
+---
+
+Best way is to:
+
+git clone https://github.com/maybites/blender.script.io_export_svg
+
+and symlinking it to your addons-folder.
+
+That way, you can git pull later on and it will automatically refresh to the latest (theoretically-)good version.
+
+
+Lasercutting
+---
 
 If you want to export the SVG for precise lasercutting and since the laser is not a precis point (in the folling example 0.2mm in diameter, but its depending on the machine), you have to ajust the vector with an outset (or inset). After exporting the SVG you can do that in almost any vector-drawing program, here the instructions for Inkscape:
 
