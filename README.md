@@ -10,11 +10,8 @@ Best way is to:
 
 git clone https://github.com/maybites/blender.script.io_export_svg
 
-<<<<<<< HEAD
 and symlinking it to your addons-folder.
 
-=======
->>>>>>> ace929f4f23abebdb83504e1d6cdff0e66a4afaa
 That way, you can git pull later on and it will automatically refresh to the latest (theoretically-)good version.
 
 
