@@ -1,5 +1,5 @@
-# --------------------------------------------------------------------------	
-# Copyright (C) 2013: Martin Froehlich , maybites.ch
+# --------------------------------------------------------------------------
+# Copyright (C) 2015: Martin Froehlich (maybites.ch), Matthew Ready (craxic.com)
 #
 # based on code from the defunct export script by jm soler, jmsoler_at_free.fr
 #
@@ -17,95 +17,139 @@
 # along with this program; if not, write to the Free Software Foundation,
 # --------------------------------------------------------------------------
 
-import bpy;
-import struct;
-from array import array;
-from bpy_extras.io_utils import ExportHelper;
-	   
-class Exporter(bpy.types.Operator, ExportHelper):
-	bl_idname       = "export_svg_format.svg";
-	bl_label        = "Inkscape SVG Exporter";
-	bl_options      = {'PRESET'};
-	
-	filename_ext    = ".svg";
-				
-	def execute(self, context):
-		# Ensure Blender is currently in OBJECT mode to allow data access. 
-		bpy.ops.object.mode_set(mode='OBJECT');
-	
-		# Set the default return state to FINISHED
-		result = {'FINISHED'};
-		
-		# Check that the currently selected object contains mesh data for exporting
-		curve = bpy.context.selected_objects[0];
-		if not curve or curve.type != 'CURVE':
-			raise NameError("Cannot export: object %s is not a curve" % curve);
+import bpy
+from bpy_extras.io_utils import ExportHelper
+from bpy.types import BezierSplinePoint
 
-		print(len(curve.data.splines));
-		print(len(curve.data.splines[0].bezier_points));
-
-		BoundingBox = curve.bound_box;
-		B1=1000*((BoundingBox[3][0]-BoundingBox[0][0])**2.0 + (BoundingBox[3][1]-BoundingBox[0][1])**2.0 + (BoundingBox[3][2]-BoundingBox[0][2])**2.0)**0.5;
-		B2=1000*((BoundingBox[7][0]-BoundingBox[3][0])**2.0 + (BoundingBox[7][1]-BoundingBox[3][1])**2.0 + (BoundingBox[7][2]-BoundingBox[3][2])**2.0)**0.5;
-
-		xml_header="""<?xml version="1.0" standalone="no"?>
+XML_HEADER = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg width="{0}mm" height="{1}mm"  viewBox="0 0 {0} {1}" xmlns="http://www.w3.org/2000/svg">
+    <title>Bezier Curve : {2}</title>
+    <desc>This is an exported Bezier xml_path from Blender, using the ExportScript by maybites.ch and Craxic</desc>
+"""
+XML_PATH = """<path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="{}"/>
+"""
+XML_END = "</svg>"
 
-<svg width="%smm" height="%smm"  viewBox="0 0 %s %s" xmlns="http://www.w3.org/2000/svg">
-<title>Bezier Curve : %s</title>
-	<desc>This is an exported Bezier xml_path from Blender, using the ExportScript by maybites.ch</desc>"""%(B2,B1,B2,B1,curve.name);
-		xml_end="""</svg>""";
+MOVE_COMMAND = 'M{},{} '
+LINE_COMMAND = 'L{},{} '
+CURVE_COMMAND = 'C{},{} {},{} {},{} '
+JOIN_COMMAND = 'Z '
 
-		shift=(BoundingBox[0][0]-curve.location[0])*1000, (curve.location[1]-BoundingBox[0][1])*1000;
-		scaleX,scaleY,scaleZ=1000,1000,1000; #curve.dimensions * 500;
-		scaleY*=-1.0;
 
-		# Open the file for writing
-		file = open(self.filepath, 'bw');
-		file.write(bytes(xml_header, 'UTF-8'))
-		
-		splines = curve.data.splines;
-		for spline in splines:
-			
-			if spline.type == 'BEZIER':
-				n = 0;
-				xml_path="""
-		<g transform>
-			<path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-				d="svg_path"/></g>\n"""
-				points = spline.bezier_points;
-				for point in points:
-					print(point.co);
-					if n==0:
-						svg_origin = [point.handle_left, point.co, point.handle_right];
-						svg_path="M %s,%s\n"%(svg_origin[1][0]*scaleX,svg_origin[1][1]*scaleY+B1);
-						previous_curve_point=svg_origin[2][0],svg_origin[2][1];
-						n+=1;
-					else:
-						curve_point= [point.handle_left, point.co, point.handle_right];
-						svg_path+="C %s,%s %s,%s %s,%s \n"%(previous_curve_point[0]*scaleX,
-							previous_curve_point[1]*scaleY+B1,
-							curve_point[0][0]*scaleX,
-							curve_point[0][1]*scaleY+B1,
-							curve_point[1][0]*scaleX,
-							curve_point[1][1]*scaleY+B1);
-						previous_curve_point=curve_point[2][0],curve_point[2][1];
+class CoordinateContext:
+    def __init__(self, min_x, min_y, max_x, max_y):
+        self.min_x = min_x
+        self.min_y = min_y
+        self.max_x = max_x
+        self.max_y = max_y
 
-				if spline.use_cyclic_u == 1:
-					svg_path+="C %s,%s %s,%s %s,%s \n"%(previous_curve_point[0]*scaleX,
-						previous_curve_point[1]*scaleY+B1,
-						svg_origin[0][0]*scaleX,
-						svg_origin[0][1]*scaleY+B1,
-						svg_origin[1][0]*scaleX,
-						svg_origin[1][1]*scaleY+B1);
-					svg_path+="Z";
-					
-				xml_path=xml_path.replace('transform',"transform=\"translate(%s %s)\""%(-shift[0],-shift[1]))#shift[0],shift[1]));
-				xml_path=xml_path.replace('svg_path',svg_path);
-				file.write(bytes(xml_path, 'UTF-8'));
+    def cx(self, x):
+        return x - self.min_x
 
-		file.write(bytes(xml_end, 'UTF-8'))
-	   
-		file.close();
+    def cy(self, y):
+        return self.max_y - y
 
-		return result;
+
+def make_curve_command(previous, point, ctx):
+    return CURVE_COMMAND.format(
+        ctx.cx(previous.handle_right[0]),
+        ctx.cy(previous.handle_right[1]),
+        ctx.cx(point.handle_left[0]),
+        ctx.cy(point.handle_left[1]),
+        ctx.cx(point.co[0]),
+        ctx.cy(point.co[1]))
+
+
+def point_str(point):
+    if isinstance(point, BezierSplinePoint):
+        return "[x: {}, y: {}, z: {},\n" \
+               " x: {}, y: {}, z: {},\n" \
+               " x: {}, y: {}, z: {}]".format(point.handle_left[0],
+                                              point.handle_left[1],
+                                              point.handle_left[2],
+                                              point.co[0],
+                                              point.co[1],
+                                              point.co[2],
+                                              point.handle_right[0],
+                                              point.handle_right[1],
+                                              point.handle_right[2])
+    else:
+        return "[x: {}, y: {}, z: {}]".format(point.co[0], point.co[1],
+                                              point.co[2])
+
+
+class Exporter(bpy.types.Operator, ExportHelper):
+    bl_idname = "export_svg_format.svg"
+    bl_label = "Inkscape SVG Exporter"
+    bl_options = {'PRESET'}
+    filename_ext = ".svg"
+
+    def execute(self, context):
+        # Ensure Blender is currently in OBJECT mode to allow data access.
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        # Set the default return state to FINISHED
+        result = {'FINISHED'}
+
+        # Check that the currently selected object contains mesh data for
+        # exporting
+        curve = bpy.context.selected_objects[0]
+        if not curve or curve.type != 'CURVE':
+            raise NameError("Cannot export: object %s is not a curve" % curve)
+
+        # bound_box[0] == [left, bottom, down]
+        # bound_box[7] == [right, top, up]
+        # bound_box[i] == [x, y, z], 0 <= i <= 7
+        min_x = curve.bound_box[0][0]
+        max_x = curve.bound_box[7][0]
+        min_y = curve.bound_box[0][1]
+        max_y = curve.bound_box[7][1]
+
+        ctx = CoordinateContext(min_x, min_y, max_x, max_y)
+
+        width = max_x - min_x
+        height = max_y - min_y
+
+        paths = []
+        for spline in curve.data.splines:
+            path = ""
+            if spline.type == 'BEZIER':
+                print("Exporting BEZIER curve.")
+                first_curve_point = None
+                previous = None
+                for n, point in enumerate(spline.bezier_points):
+                    print("Point: " + point_str(point))
+
+                    if n == 0:
+                        first_curve_point = point
+                        path += MOVE_COMMAND.format(ctx.cx(point.co[0]),
+                                                    ctx.cy(point.co[1]))
+                    else:
+                        path += make_curve_command(previous, point, ctx)
+                    previous = point
+
+                if spline.use_cyclic_u == 1:
+                    path += make_curve_command(previous, first_curve_point,
+                                               ctx)
+                    path += JOIN_COMMAND
+            elif spline.type == 'POLY':
+                print("Exporting POLY curve.")
+                for n, point in enumerate(spline.points):
+                    command = MOVE_COMMAND if n == 0 else LINE_COMMAND
+                    path += command.format(ctx.cx(point.co[0]),
+                                           ctx.cy(point.co[1]))
+                    print("Point: " + point_str(point))
+
+                if spline.use_cyclic_u == 1:
+                    path += JOIN_COMMAND
+            paths.append(path)
+
+        # Open the file for writing
+        with open(self.filepath, 'w') as f:
+            f.write(XML_HEADER.format(width, height, curve.name))
+            for path in paths:
+                f.write(XML_PATH.format(path))
+            f.write(XML_END)
+
+        return result
