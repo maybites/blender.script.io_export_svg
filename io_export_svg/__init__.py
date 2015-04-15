@@ -18,9 +18,9 @@
 
 bl_info = {
     "name": "Export SVG Format (.svg)",
-    "author": "Martin Froehlich / maybites.ch",
-    "version": (0, 0, 5),
-    "blender": (2, 68, 0),
+    "author": "Martin Froehlich (maybites.ch) + Matthew Ready (craxic.com)",
+    "version": (0, 0, 6),
+    "blender": (2, 7, 0),
     "location": "File > Export > Inkscape (.svg)",
     "description": "The script exports Blender BezierCurves to SVG format.",
     "warning": "Quick and dirty hack, no success guaranteed.",

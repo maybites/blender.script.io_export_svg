@@ -51,32 +51,33 @@ class CoordinateContext:
         return self.max_y - y
 
 
-def make_curve_command(previous, point, ctx):
+def make_curve_command(previous, point, ctx, scale, translation):
     return CURVE_COMMAND.format(
-        ctx.cx(previous.handle_right[0]),
-        ctx.cy(previous.handle_right[1]),
-        ctx.cx(point.handle_left[0]),
-        ctx.cy(point.handle_left[1]),
-        ctx.cx(point.co[0]),
-        ctx.cy(point.co[1]))
+        ctx.cx(previous.handle_right[0] * scale[0] + translation[0]),
+        ctx.cy(previous.handle_right[1] * scale[1] + translation[1]),
+        ctx.cx(point.handle_left[0] * scale[0] + translation[0]),
+        ctx.cy(point.handle_left[1] * scale[1] + translation[1]),
+        ctx.cx(point.co[0] * scale[0] + translation[0]),
+        ctx.cy(point.co[1] * scale[1] + translation[1]))
 
 
-def point_str(point):
+def point_str(point, scale, translation):
     if isinstance(point, BezierSplinePoint):
         return "[x: {}, y: {}, z: {},\n" \
                " x: {}, y: {}, z: {},\n" \
-               " x: {}, y: {}, z: {}]".format(point.handle_left[0],
-                                              point.handle_left[1],
-                                              point.handle_left[2],
-                                              point.co[0],
-                                              point.co[1],
-                                              point.co[2],
-                                              point.handle_right[0],
-                                              point.handle_right[1],
-                                              point.handle_right[2])
+               " x: {}, y: {}, z: {}]".format(point.handle_left[0] * scale[0] + translation[0],
+                                              point.handle_left[1] * scale[1] + translation[1],
+                                              point.handle_left[2] * scale[2] + translation[2],
+                                              point.co[0] * scale[0] + translation[0],
+                                              point.co[1] * scale[1] + translation[1],
+                                              point.co[2] * scale[2] + translation[2],
+                                              point.handle_right[0] * scale[0] + translation[0],
+                                              point.handle_right[1] * scale[1] + translation[1],
+                                              point.handle_right[2] * scale[2] + translation[2])
     else:
-        return "[x: {}, y: {}, z: {}]".format(point.co[0], point.co[1],
-                                              point.co[2])
+        return "[x: {}, y: {}, z: {}]".format(point.co[0] * scale[0] + translation[0],
+                                              point.co[1] * scale[1] + translation[1],
+                                              point.co[2] * scale[2] + translation[2])
 
 
 class Exporter(bpy.types.Operator, ExportHelper):
@@ -98,6 +99,9 @@ class Exporter(bpy.types.Operator, ExportHelper):
         if not curve or curve.type != 'CURVE':
             raise NameError("Cannot export: object %s is not a curve" % curve)
 
+		# this scales from blender to svg (blender 1.0 = 1m while svg 1.0 = 1mm)
+        scale = [1000, 1000, 1000]; #curve.dimensions * 1000;
+
         # bound_box[0] == [left, bottom, down]
         # bound_box[7] == [right, top, up]
         # bound_box[i] == [x, y, z], 0 <= i <= 7
@@ -108,8 +112,12 @@ class Exporter(bpy.types.Operator, ExportHelper):
 
         ctx = CoordinateContext(min_x, min_y, max_x, max_y)
 
-        width = max_x - min_x
-        height = max_y - min_y
+		# this calculates the documents size
+        width = (max_x - min_x) * scale[0]
+        height = (max_y - min_y) * scale[1]
+
+		# this centers the object inside the document
+        translation = [- scale[0] * curve.bound_box[0][0], scale[1] * curve.bound_box[0][1], scale[2] * curve.bound_box[0][2]]
 
         paths = []
         for spline in curve.data.splines:
@@ -119,27 +127,26 @@ class Exporter(bpy.types.Operator, ExportHelper):
                 first_curve_point = None
                 previous = None
                 for n, point in enumerate(spline.bezier_points):
-                    print("Point: " + point_str(point))
+                    print("Point: " + point_str(point, scale, translation))
 
                     if n == 0:
                         first_curve_point = point
-                        path += MOVE_COMMAND.format(ctx.cx(point.co[0]),
-                                                    ctx.cy(point.co[1]))
+                        path += MOVE_COMMAND.format(ctx.cx(point.co[0] * scale[0] + translation[0]),
+                                                    ctx.cy(point.co[1] * scale[1] + translation[1]))
                     else:
-                        path += make_curve_command(previous, point, ctx)
+                        path += make_curve_command(previous, point, ctx, scale, translation)
                     previous = point
 
                 if spline.use_cyclic_u == 1:
-                    path += make_curve_command(previous, first_curve_point,
-                                               ctx)
+                    path += make_curve_command(previous, first_curve_point, ctx, scale, translation)
                     path += JOIN_COMMAND
             elif spline.type == 'POLY':
                 print("Exporting POLY curve.")
                 for n, point in enumerate(spline.points):
                     command = MOVE_COMMAND if n == 0 else LINE_COMMAND
-                    path += command.format(ctx.cx(point.co[0]),
-                                           ctx.cy(point.co[1]))
-                    print("Point: " + point_str(point))
+                    path += command.format(ctx.cx(point.co[0] * scale[0] + translation[0]),
+                                           ctx.cy(point.co[1] * scale[1] + translation[1]))
+                    print("Point: " + point_str(point, scale, translation))
 
                 if spline.use_cyclic_u == 1:
                     path += JOIN_COMMAND
