@@ -23,7 +23,7 @@ bl_info = {
     "blender": (2, 7, 0),
     "location": "File > Export > Inkscape (.svg)",
     "description": "The script exports Blender BezierCurves to SVG format.",
-    "warning": "Quick and dirty hack, no success guaranteed.",
+    "warning": "Quick and dirty hack, no success guaranteed. Doesn't like objectnames with special characters",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Inkscape_SVG_Exporter",
     "tracker_url": "",
     "category": "Import-Export"
