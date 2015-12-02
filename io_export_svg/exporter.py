@@ -102,6 +102,13 @@ class Exporter(bpy.types.Operator, ExportHelper):
 		# this scales from blender to svg (blender 1.0 = 1m while svg 1.0 = 1mm)
         scale = [1000, 1000, 1000]; #curve.dimensions * 1000;
 
+        # consider unit settings
+        unit = context.scene.unit_settings
+        if unit.system == 'METRIC':
+            scale[:] = [s * unit.scale_length for s in scale]
+        elif unit.system == 'IMPERIAL':
+            self.report({'WARNING'}, "Imperial units not implemented! Scale of output is most probably incorrect!")
+
         # bound_box[0] == [left, bottom, down]
         # bound_box[7] == [right, top, up]
         # bound_box[i] == [x, y, z], 0 <= i <= 7
