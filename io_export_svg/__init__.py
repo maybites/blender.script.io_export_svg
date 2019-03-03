@@ -19,11 +19,11 @@
 bl_info = {
     "name": "Export SVG Format (.svg)",
     "author": "Martin Froehlich (maybites.ch) + Matthew Ready (craxic.com)",
-    "version": (0, 0, 6),
-    "blender": (2, 7, 0),
+    "version": (0, 0, 7),
+    "blender": (2, 80, 0),
     "location": "File > Export > Inkscape (.svg)",
-    "description": "The script exports Blender BezierCurves to SVG format.",
-    "warning": "Quick and dirty hack, no success guaranteed. Doesn't like objectnames with special characters",
+    "description": "The script exports Blender 2.80 BezierCurves to SVG format.",
+    "warning": "No success guaranteed. Doesn't like objectnames with special characters",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Inkscape_SVG_Exporter",
     "tracker_url": "",
     "category": "Import-Export"
@@ -38,16 +38,22 @@ if "bpy" in locals():
 import bpy;
 from .exporter import Exporter;
 
-def menu_func(self, context):
+def menu_func_export_button(self, context):
     self.layout.operator(Exporter.bl_idname, text="Inkscape (.svg)");
 
+classes = [
+    Exporter,
+]
+
 def register():
-    bpy.utils.register_module(__name__);
-    bpy.types.INFO_MT_file_export.append(menu_func);
-    
-def unregister():
-    bpy.utils.unregister_module(__name__);
-    bpy.types.INFO_MT_file_export.remove(menu_func);
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_button)
+
+def unregister():  # note how unregistering is done in reverse
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_button)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
     register()
